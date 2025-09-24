@@ -16,10 +16,10 @@ jobs:
 
     - name: Check if PR is a backport
       run: |
-        if [[ "$(echo "${{ github.event.pull_request.title }}" | sed 's/"/\\"/g')" =~ "backport #" ]]; then
-          echo "BACKPORT=true" >> $GITHUB_ENV
+        if [[ "${{ contains(github.event.pull_request.title, 'backport #') }}" == "true" ]]; then
+          echo "BACKPORT=true" >> "$GITHUB_ENV"
         else
-          echo "BACKPORT=false" >> $GITHUB_ENV
+          echo "BACKPORT=false" >> "$GITHUB_ENV"
         fi
 
     - name: Extract backport branch and issue number
@@ -31,14 +31,41 @@ jobs:
         BRANCH=$(echo "${BRANCH}" | sed 's/\./\\./g')   # Escape periods
         echo "BRANCH=$BRANCH" >> $GITHUB_ENV
         
-        # Extract issue number from the PR description
-        ORIGINAL_ISSUE_NUMBER=$(echo '${{ github.event.pull_request.body }}'' | grep -oE 'longhorn/longhorn#[0-9]+' | cut -d'#' -f2)
-        echo "ORIGINAL_ISSUE_NUMBER=$ORIGINAL_ISSUE_NUMBER" >> $GITHUB_ENV
+        PR_BODY="${{ github.event.pull_request.body }}"
+        ORIGINAL_ISSUE_NUMBER=$(printf '%s\n' "$PR_BODY" \
+          | grep -oE 'longhorn/longhorn#[0-9]+' \
+          | head -1 \
+          | cut -d'#' -f2)
+
+        if [[ "$ORIGINAL_ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+          echo "ORIGINAL_ISSUE_NUMBER=$ORIGINAL_ISSUE_NUMBER" >> $GITHUB_ENV
+        else
+          echo "ORIGINAL_ISSUE_NUMBER=" >> $GITHUB_ENV
+        fi
+
+    - name: Check if PR is from a fork
+      run: |
+        if [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+          echo "IS_FORK=true" >> $GITHUB_ENV
+        else
+          echo "IS_FORK=false" >> $GITHUB_ENV
+        fi
+
+    - id: app-token
+      if: ${{ env.BACKPORT == 'true' && env.IS_FORK == 'true' }}
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ secrets.LONGHORN_GITHUB_BOT_APP_ID }}
+        private-key: ${{ secrets.LONGHORN_GITHUB_BOT_PRIVATE_KEY }}
+        owner: ${{ github.repository_owner }}
+        permission-contents: write
+        permission-issues: write
+        permission-pull-requests: write
 
     - name: Link the PR with the backport issue
-      if: ${{ env.BACKPORT == 'true' && env.ORIGINAL_ISSUE_NUMBER != '' }}
+      if: ${{ env.BACKPORT == 'true' && env.IS_FORK == 'true' && env.ORIGINAL_ISSUE_NUMBER != '' }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
       run: |
         for issue_number in "${{ env.ORIGINAL_ISSUE_NUMBER }}"; do
           echo "Found source issue longhorn/longhorn#${issue_number}"

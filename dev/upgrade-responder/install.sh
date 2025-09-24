@@ -60,6 +60,8 @@ secret:
   influxDBUrl: "${INFLUXDB_URL}"
   influxDBUser: "root"
   influxDBPassword: "root"
+flags:
+  scarfEndpoint: "https://longhorn.gateway.scarf.sh/{version}"
 configMap:
   responseConfig: |-
     {
@@ -93,6 +95,10 @@ configMap:
           "maxLen": 200
         },
         "kubernetesVersion": {
+          "dataType": "string",
+          "maxLen": 200
+        },
+        "longhornImageRegistry": {
           "dataType": "string",
           "maxLen": 200
         },
@@ -294,6 +300,9 @@ configMap:
         "longhornSettingBackupstorePollInterval": {
           "dataType": "float"
         },
+        "longhornSettingBackupBlockSize": {
+          "dataType": "float"
+        },
         "longhornSettingConcurrentAutomaticEngineUpgradePerNodeLimit": {
           "dataType": "float"
         },
@@ -312,10 +321,10 @@ configMap:
         "longhornSettingFailedBackupTtl": {
           "dataType": "float"
         },
-        "longhornSettingGuaranteedInstanceManagerCpu": {
+        "longhornSettingReplicaRebuildingBandwidthLimit": {
           "dataType": "float"
         },
-        "longhornSettingV2DataEngineGuaranteedInstanceManagerCpu": {
+        "longhornSettingGuaranteedInstanceManagerCpu": {
           "dataType": "float"
         },
         "longhornSettingRecurringFailedJobsHistoryLimit": {
